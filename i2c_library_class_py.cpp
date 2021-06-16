@@ -9,6 +9,24 @@
 #include <boost/python.hpp>
 
 
+class i2c_io_error : std::exception {
+    public:
+    char const* my_message = "";
+
+    i2c_io_error(char const* message) {
+        my_message = message;
+    }
+    char const* what() { 
+        return my_message;
+    }
+};
+
+
+void translate_i2c_io_error(i2c_io_error e) {
+    PyErr_SetString(PyExc_RuntimeError, e.what() );
+}
+
+
 class i2c_fanc{
 public:
     i2c_fanc(int8_t mode, std::string dev){
@@ -58,11 +76,11 @@ public:
             packets.nmsgs = 1; //* msgのサイズ指定 */
             ret = ioctl(this -> fd, I2C_RDWR, &packets);
             if(ret != 0){
-                throw my_exception("i2c address error");
+                throw i2c_io_error("i2c io error");
             }
             return(ret);
         }
-        throw my_exception("i2c address error");
+        throw i2c_io_error("i2c address error");
         return(-2);
     }
 
@@ -89,12 +107,12 @@ public:
             }
             else{
                 //data2.append(-1);
-                throw my_exception("i2c io error");
+                throw i2c_io_error("i2c io error");
             }
         }
         else{
             //data2.append(-1);
-            throw my_exception("i2c address error");
+            throw i2c_io_error("i2c address error");
         }
         
         return(data2);
@@ -103,24 +121,6 @@ public:
     int fd = 0;
     int addr_max = 0;
 };
-
-
-class i2c_io_error : std::exception {
-    public:
-    char const* my_message = "";
-
-    my_exception(char const* message) {
-        my_message = message;
-    }
-    char const* what() { 
-        return my_message;
-    }
-};
-
-
-void translate_i2c_io_error(i2c_io_error e) {
-    PyErr_SetString(PyExc_RuntimeError, e.what() );
-}
 
 
 BOOST_PYTHON_MODULE(i2c_fancs)
@@ -133,8 +133,7 @@ BOOST_PYTHON_MODULE(i2c_fancs)
         .def("i2c_read", &i2c_fanc::i2c_read)
         ;
 
-    boost::python::register_exception_translator<i2c_io_error>(&translateMyExcept);
-    boost::python::def("execExcept", &execExcept);
+    boost::python::register_exception_translator<i2c_io_error>(&translate_i2c_io_error);
     
 }
 
